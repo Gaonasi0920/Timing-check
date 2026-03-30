@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>타이밍 게임</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: #ffffff;
+            color: #111111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #app {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .screen {
+            display: none;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .screen.active {
+            display: flex;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .score-board {
+            position: fixed;
+            top: 10px;
+            right: 15px;
+            font-size: 1.5rem;
+            font-weight: 800;
+            z-index: 5;
+        }
+
+        button {
+            border: none;
+            border-radius: 12px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s, background-color 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin: 15px;
+        }
+
+        button:active {
+            transform: scale(0.94);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* 1. START 버튼 (검은색) */
+        #btn-start {
+            background-color: #000000;
+            color: #ffffff;
+            padding: 24px 70px;
+            font-size: 2.5rem;
+        }
+
+        /* 2. 난이도 버튼 영역 구성 (세로 배치) */
+        .diff-btn {
+            width: 260px;
+            padding: 24px;
+            color: #000000;
+            text-transform: uppercase;
+            font-size: 1.8rem;
+        }
+
+        #btn-easy { background-color: #FFD23F; } /* 노란 바탕 */
+        #btn-normal { background-color: #38B000; color: #ffffff; } /* 초록 바탕 */
+        #btn-hard { background-color: #D90429; color: #ffffff; } /* 빨간 바탕 */
+
+        /* 3. 게임 화면 */
+        #game-info {
+            width: 100%;
+            margin-bottom: 20px; 
+        }
+
+        #target-time-display {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        #current-time-display {
+            font-size: 4rem;
+            font-weight: 900;
+            color: #000;
+            height: 70px; 
+            line-height: 70px;
+        }
+
+        /* 초록색 상자 (행동 버튼) */
+        #btn-action {
+            width: 250px;
+            height: 250px;
+            background-color: #00CF5D;
+            border-radius: 24px;
+            margin-top: 20px; 
+            box-shadow: 0 8px 15px rgba(0, 207, 93, 0.4);
+        }
+        
+        #btn-action:hover {
+            background-color: #00E566;
+        }
+
+        /* 준비 오버레이 */
+        #countdown-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(4px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            font-size: 6rem;
+            font-weight: 900;
+            z-index: 10;
+        }
+        
+        #countdown-overlay.active {
+            display: flex;
+        }
+
+        /* 4. 결과 화면 오버레이 (성공/실패) */
+        #result-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            backdrop-filter: blur(8px);
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        #result-overlay.active {
+            display: flex;
+        }
+
+        #result-overlay.success {
+            background: rgba(0, 207, 93, 0.85); 
+            color: white;
+        }
+
+        #result-overlay.fail {
+            background: rgba(217, 4, 41, 0.85); 
+            color: white;
+        }
+
+        #result-title {
+            font-size: 5rem;
+            font-weight: 900;
+            margin-bottom: 10px;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        #result-desc {
+            font-size: 1.5rem;
+            margin-bottom: 40px;
+            font-weight: bold;
+        }
+
+        .result-buttons {
+            display: none;
+            gap: 15px;
+        }
+
+        .result-buttons.active {
+            display: flex;
+        }
+
+        /* 컨트롤 투명 버튼들 */
+        .btn-overlay {
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            background-color: rgba(255, 255, 255, 0.25);
+            color: white;
+            border: 2px solid white;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: none;
+        }
+        
+        .btn-overlay:hover {
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* 5. 플로팅 보너스 점수 효과 */
+        .floating-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            margin-left: -100px;
+            width: 200px;
+            text-align: center;
+            font-size: 6rem;
+            font-weight: 900;
+            color: #FFD23F;
+            text-shadow: 0 0px 20px rgba(0,0,0,0.3);
+            pointer-events: none;
+            z-index: 15;
+            animation: floatUp 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes floatUp {
+            0% { opacity: 0; transform: translateY(30px) scale(0.4); }
+            30% { opacity: 1; transform: translateY(-40px) scale(1.1); }
+            70% { opacity: 1; transform: translateY(-60px) scale(1.0); }
+            100% { opacity: 0; transform: translateY(-90px) scale(0.8); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app">
+        <div class="score-board">High Score: <span id="high-score">0</span> <span style="opacity:0.3; margin: 0 10px;">|</span> Score: <span id="score">0</span></div>
+
+        <div id="countdown-overlay">
+            <span id="countdown-text">준비</span>
+        </div>
+
+        <div id="result-overlay">
+            <div id="result-title">Title</div>
+            <div id="result-desc">Desc</div>
+            <div class="result-buttons" id="result-btns-success">
+                <button id="btn-next" class="btn-overlay">Next</button>
+                <button id="btn-reset" class="btn-overlay">Reset</button>
+            </div>
+        </div>
+
+        <div id="screen-start" class="screen active">
+            <button id="btn-start">START</button>
+        </div>
+
+        <div id="screen-difficulty" class="screen">
+            <button id="btn-easy" class="diff-btn" data-diff="easy">Easy</button>
+            <button id="btn-normal" class="diff-btn" data-diff="normal">Normal</button>
+            <button id="btn-hard" class="diff-btn" data-diff="hard">Hard</button>
+        </div>
+
+        <div id="screen-game" class="screen">
+            <div id="game-info">
+                <div id="target-time-display">목표: 0.00초</div>
+                <div id="current-time-display">0.00</div>
+            </div>
+            
+            <button id="btn-action"></button>
+        </div>
+    </div>
+
+    <script>
+        const screens = {
+            start: document.getElementById('screen-start'),
+            difficulty: document.getElementById('screen-difficulty'),
+            game: document.getElementById('screen-game')
+        };
+        const elScore = document.getElementById('score');
+        const elHighScore = document.getElementById('high-score');
+        const elTargetTime = document.getElementById('target-time-display');
+        const elCurrentTime = document.getElementById('current-time-display');
+        const btnAction = document.getElementById('btn-action');
+        const elCountdown = document.getElementById('countdown-overlay');
+        const elCountdownText = document.getElementById('countdown-text');
+        
+        const elResultOverlay = document.getElementById('result-overlay');
+        const elResultTitle = document.getElementById('result-title');
+        const elResultDesc = document.getElementById('result-desc');
+        const elResultBtnsSuccess = document.getElementById('result-btns-success');
+        const btnNext = document.getElementById('btn-next');
+        const btnReset = document.getElementById('btn-reset');
+
+        // --- 효과음 (Web Audio API) ---
+        let audioCtx;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            if (type === 'success') {
+                // 경쾌하고 밝은 띠링 소리
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime); // 도 (C5)
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                oscillator.start(audioCtx.currentTime);
+                oscillator.stop(audioCtx.currentTime + 0.3);
+                
+                // 100ms 후 두 번째 화음
+                setTimeout(() => {
+                    const osc2 = audioCtx.createOscillator();
+                    const gain2 = audioCtx.createGain();
+                    osc2.connect(gain2);
+                    gain2.connect(audioCtx.destination);
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(659.25, audioCtx.currentTime); // 미 (E5)
+                    gain2.gain.setValueAtTime(0, audioCtx.currentTime);
+                    gain2.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
+                    gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                    osc2.start(audioCtx.currentTime);
+                    osc2.stop(audioCtx.currentTime + 0.5);
+                }, 100);
+            } else if (type === 'fail') {
+                // 둔탁한 삐 소리
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.3);
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                oscillator.start(audioCtx.currentTime);
+                oscillator.stop(audioCtx.currentTime + 0.3);
+            }
+        }
+
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('timingGameHighScore')) || 0;
+        let difficulty = ''; 
+        let targetTimeSec = 0; 
+        let marginOfError = 0;
+        let showTimer = true;
+        let pointsReward = 1;
+
+        let startTime = 0;
+        let isPlaying = false;
+        let animationFrameId = null;
+
+        const SETTINGS = {
+            easy: { margin: 1.0, showTimer: true, points: 1 },
+            normal: { margin: 0.5, showTimer: true, points: 2 },
+            hard: { margin: 0.2, showTimer: false, points: 3 }
+        };
+
+        function showScreen(screenName) {
+            Object.values(screens).forEach(screen => screen.classList.remove('active'));
+            screens[screenName].classList.add('active');
+        }
+
+        function hideResultOverlay() {
+            elResultOverlay.className = '';
+            elResultBtnsSuccess.classList.remove('active');
+        }
+
+        function initApp() {
+            // score = 0; // 이전 기록(이전 Score)을 화면에 남기기 위해 여기서 0으로 초기화하지 않음
+            updateScore();
+            hideResultOverlay();
+            showScreen('start');
+        }
+
+        function updateScore() {
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('timingGameHighScore', highScore);
+            }
+            elScore.innerText = score;
+            elHighScore.innerText = highScore;
+        }
+
+        document.getElementById('btn-start').addEventListener('click', () => {
+            initAudio(); // 음향 엔진 활성 (브라우저 정책 우회)
+            score = 0;   // 새 게임 시작 전 점수 완전 0점 리셋
+            updateScore();
+            showScreen('difficulty');
+        });
+
+        document.querySelectorAll('.diff-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                difficulty = e.target.dataset.diff;
+                marginOfError = SETTINGS[difficulty].margin;
+                showTimer = SETTINGS[difficulty].showTimer;
+                pointsReward = SETTINGS[difficulty].points;
+                
+                startRound();
+            });
+        });
+
+        function startRound() {
+            showScreen('game');
+            targetTimeSec = parseFloat((Math.random() * 30).toFixed(2));
+            elTargetTime.innerText = `목표: ${targetTimeSec.toFixed(2)}초 (±${marginOfError}초)`;
+            
+            elCurrentTime.innerText = showTimer ? '0.00' : '???';
+            elCurrentTime.style.color = showTimer ? '#000' : '#888';
+
+            btnAction.disabled = true;
+
+            elCountdown.classList.add('active');
+            elCountdownText.innerText = '준비';
+
+            setTimeout(() => {
+                elCountdownText.innerText = 'Go!';
+                setTimeout(() => {
+                    elCountdown.classList.remove('active');
+                    startGameTimer();
+                }, 400); 
+            }, 1000); 
+        }
+
+        function startGameTimer() {
+            isPlaying = true;
+            btnAction.disabled = false;
+            startTime = performance.now();
+
+            if (showTimer) {
+                function updateDisplay() {
+                    if (!isPlaying) return;
+                    let now = performance.now();
+                    let elapsed = (now - startTime) / 1000;
+                    elCurrentTime.innerText = elapsed.toFixed(2);
+                    animationFrameId = requestAnimationFrame(updateDisplay);
+                }
+                animationFrameId = requestAnimationFrame(updateDisplay);
+            }
+        }
+
+        btnAction.addEventListener('click', () => {
+            if (!isPlaying) return;
+            isPlaying = false;
+            
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            
+            let endTime = performance.now();
+            let elapsedSec = (endTime - startTime) / 1000;
+            let diff = Math.abs(elapsedSec - targetTimeSec);
+
+            elCurrentTime.innerText = elapsedSec.toFixed(2);
+            elCurrentTime.style.color = '#000';
+
+            if (diff <= marginOfError) {
+                // [성공 1단계] 플로팅 애니메이션 & 화음 먼저 재생
+                playSound('success');
+                score += pointsReward;
+                updateScore();
+
+                const floatEl = document.createElement('div');
+                floatEl.className = 'floating-text';
+                floatEl.innerText = `+${pointsReward}`;
+                document.getElementById('app').appendChild(floatEl);
+
+                // [성공 2단계] 0.8초 애니메이션 연출 후 Success 화면
+                setTimeout(() => {
+                    floatEl.remove();
+                    elResultOverlay.className = 'active';
+                    elResultOverlay.classList.add('success');
+                    elResultTitle.innerText = 'Success';
+                    elResultDesc.innerText = `+${pointsReward}점! (오차: ${diff.toFixed(2)}초 / 기준: ±${marginOfError}초)`;
+                    elResultBtnsSuccess.classList.add('active');
+                }, 800);
+
+            } else {
+                // [실패] 경고음 재생 후 즉시 Fail 화면
+                playSound('fail');
+                setTimeout(() => {
+                    elResultOverlay.className = 'active';
+                    elResultOverlay.classList.add('fail');
+                    elResultTitle.innerText = 'Fail';
+                    elResultDesc.innerText = `오차: ${diff.toFixed(2)}초 (목표: ${targetTimeSec.toFixed(2)}s)`;
+                    elResultBtnsSuccess.classList.remove('active');
+                    
+                    setTimeout(() => {
+                        hideResultOverlay();
+                        initApp();
+                    }, 1500);
+                }, 100);
+            }
+        });
+
+        btnNext.addEventListener('click', () => {
+            hideResultOverlay();
+            startRound();
+        });
+
+        btnReset.addEventListener('click', () => {
+            hideResultOverlay();
+            initApp(); // 처음부터
+        });
+
+        initApp();
+    </script>
+</body>
+</html>
